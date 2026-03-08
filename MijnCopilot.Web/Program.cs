@@ -7,12 +7,23 @@ using MijnCopilot.Application.User.Commands;
 using MijnCopilot.Web.Components;
 using MijnCopilot.Web.Helpers;
 using MudBlazor.Services;
+using Orleans.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.UseOrleansClient(clientBuilder =>
 {
-    clientBuilder.UseLocalhostClustering();
+    clientBuilder
+        .Configure<ClusterOptions>(options =>
+        {
+            options.ClusterId = "mijn-copilot";
+            options.ServiceId = "mijn-copilot";
+        })
+        .UseAzureStorageClustering(options =>
+        {
+            options.TableServiceClient = new Azure.Data.Tables.TableServiceClient(
+                builder.Configuration.GetValue<string>("BLOB_CONNECTION_STRING")!);
+        });
 });
 
 builder.Services.AddAuth0WebAppAuthentication(options =>
