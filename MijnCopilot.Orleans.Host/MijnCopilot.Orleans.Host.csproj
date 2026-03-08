@@ -12,4 +12,9 @@
 		<PackageReference Include="Microsoft.Orleans.Persistence.Memory" Version="10.0.1" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<ProjectReference Include="..\MijnCopilot.Contracts\MijnCopilot.Contracts.csproj" />
+		<ProjectReference Include="..\MijnCopilot.Model\MijnCopilot.Model.csproj" />
+	</ItemGroup>
+
 </Project>
