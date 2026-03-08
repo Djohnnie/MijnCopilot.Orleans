@@ -8,6 +8,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Orleans.Dashboard" Version="10.0.1" />
+		<PackageReference Include="Microsoft.Orleans.Persistence.AzureStorage" Version="10.0.1" />
 		<PackageReference Include="Microsoft.Orleans.Server" Version="10.0.1" />
 		<PackageReference Include="Microsoft.Orleans.Persistence.Memory" Version="10.0.1" />
 	</ItemGroup>

@@ -1,7 +1,5 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using MijnCopilot.DataAccess;
+using MijnCopilot.Contracts.Grains;
 
 namespace MijnCopilot.Application.Chats.Commands;
 
@@ -12,19 +10,25 @@ public class DeleteChatCommand : IRequest<Unit>
 
 public class DeleteChatCommandHandler : IRequestHandler<DeleteChatCommand, Unit>
 {
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IGrainFactory _grainFactory;
 
-    public DeleteChatCommandHandler(IServiceScopeFactory serviceScopeFactory)
+    public DeleteChatCommandHandler(IGrainFactory grainFactory)
     {
-        _serviceScopeFactory = serviceScopeFactory;
+        _grainFactory = grainFactory;
     }
 
     public async Task<Unit> Handle(DeleteChatCommand request, CancellationToken cancellationToken)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<MijnCopilotDbContext>();
+        var chatGrain = _grainFactory.GetGrain<IChatGrain>(request.ChatId);
+        var info = await chatGrain.GetInfoAsync();
 
-        await dbContext.Chats.Where(x => x.Id == request.ChatId).ExecuteUpdateAsync(x => x.SetProperty(p => p.IsArchived, true));
+        await chatGrain.ArchiveAsync();
+
+        if (!string.IsNullOrEmpty(info.UserId))
+        {
+            var userGrain = _grainFactory.GetGrain<IUserGrain>(info.UserId);
+            await userGrain.RemoveChatAsync(request.ChatId);
+        }
 
         return Unit.Value;
     }

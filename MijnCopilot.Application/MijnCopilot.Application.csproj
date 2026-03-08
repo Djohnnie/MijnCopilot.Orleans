@@ -16,7 +16,6 @@
 	<ItemGroup>
 		<ProjectReference Include="..\MijnCopilot.Agents\MijnCopilot.Agents.csproj" />
 		<ProjectReference Include="..\MijnCopilot.Contracts\MijnCopilot.Contracts.csproj" />
-		<ProjectReference Include="..\MijnCopilot.DataAccess\MijnCopilot.DataAccess.csproj" />
 	</ItemGroup>
 
 </Project>

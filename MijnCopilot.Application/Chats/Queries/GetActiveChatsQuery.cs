@@ -1,7 +1,5 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using MijnCopilot.DataAccess;
+using MijnCopilot.Contracts.Grains;
 
 namespace MijnCopilot.Application.Chats.Queries;
 
@@ -12,7 +10,7 @@ public class GetActiveChatsQuery : IRequest<GetActiveChatsResponse>
 
 public class GetActiveChatsResponse
 {
-    public List<ChatDto> Chats { get; set; } = new List<ChatDto>();
+    public List<ChatDto> Chats { get; set; } = [];
 }
 
 public class ChatDto
@@ -23,32 +21,29 @@ public class ChatDto
 
 public class GetActiveChatsQueryHandler : IRequestHandler<GetActiveChatsQuery, GetActiveChatsResponse>
 {
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IGrainFactory _grainFactory;
 
-    public GetActiveChatsQueryHandler(
-        IServiceScopeFactory serviceScopeFactory)
+    public GetActiveChatsQueryHandler(IGrainFactory grainFactory)
     {
-        _serviceScopeFactory = serviceScopeFactory;
+        _grainFactory = grainFactory;
     }
 
     public async Task<GetActiveChatsResponse> Handle(GetActiveChatsQuery request, CancellationToken cancellationToken)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<MijnCopilotDbContext>();
+        var userGrain = _grainFactory.GetGrain<IUserGrain>(request.UserId);
+        var chatIds = await userGrain.GetChatIdsAsync();
 
-        var chats = await dbContext.Chats
-            .Where(x => !x.IsArchived && x.UserId == request.UserId)
-            .OrderByDescending(x => x.StartedOn)
-            .Select(c => new ChatDto
-            {
-                Id = c.Id,
-                Title = c.Title
-            })
-            .ToListAsync(cancellationToken);
+        var infoTasks = chatIds
+            .Select(id => _grainFactory.GetGrain<IChatGrain>(id).GetInfoAsync());
 
-        return new GetActiveChatsResponse
-        {
-            Chats = chats
-        };
+        var infos = await Task.WhenAll(infoTasks);
+
+        var chats = infos
+            .Where(i => !i.IsArchived)
+            .OrderByDescending(i => i.StartedOn)
+            .Select(i => new ChatDto { Id = i.Id, Title = i.Title })
+            .ToList();
+
+        return new GetActiveChatsResponse { Chats = chats };
     }
 }

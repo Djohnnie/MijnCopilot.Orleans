@@ -1,6 +1,5 @@
 ﻿using MediatR;
-using Microsoft.Extensions.DependencyInjection;
-using MijnCopilot.DataAccess;
+using MijnCopilot.Contracts.Grains;
 using MijnCopilot.Model;
 
 namespace MijnCopilot.Application.Chats.Commands;
@@ -20,47 +19,24 @@ public class CreateNewChatResponse
 
 public class CreateNewChatCommandHandler : IRequestHandler<CreateNewChatCommand, CreateNewChatResponse>
 {
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IGrainFactory _grainFactory;
 
-    public CreateNewChatCommandHandler(IServiceScopeFactory serviceScopeFactory)
+    public CreateNewChatCommandHandler(IGrainFactory grainFactory)
     {
-        _serviceScopeFactory = serviceScopeFactory;
+        _grainFactory = grainFactory;
     }
 
     public async Task<CreateNewChatResponse> Handle(CreateNewChatCommand request, CancellationToken cancellationToken)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<MijnCopilotDbContext>();
-
         var chatId = Guid.NewGuid();
-        var timestamp = DateTime.UtcNow;
 
-        var chat = new Chat
-        {
-            Id = chatId,
-            UserId = request.UserId,
-            Title = request.Title,
-            StartedOn = timestamp,
-            LastActivityOn = timestamp
-        };
-        dbContext.Chats.Add(chat);
+        var chatGrain = _grainFactory.GetGrain<IChatGrain>(chatId);
+        await chatGrain.InitializeAsync(request.UserId, request.Title);
+        await chatGrain.AddMessageAsync(MessageType.User, request.Request, null, request.TokensUsed);
 
-        dbContext.Messages.Add(new Message
-        {
-            Id = Guid.NewGuid(),
-            Chat = chat,
-            Content = request.Request,
-            AgentName = string.Empty,
-            PostedOn = timestamp,
-            TokensUsed = request.TokensUsed,
-            Type = MessageType.User
-        });
+        var userGrain = _grainFactory.GetGrain<IUserGrain>(request.UserId);
+        await userGrain.AddChatAsync(chatId);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return new CreateNewChatResponse
-        {
-            ChatId = chatId
-        };
+        return new CreateNewChatResponse { ChatId = chatId };
     }
 }

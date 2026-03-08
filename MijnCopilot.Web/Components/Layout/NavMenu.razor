@@ -37,7 +37,7 @@
             return;
         }
 
-        var userId = authState.User.FindFirst(ClaimTypes.Sid)?.Value ?? string.Empty;
+        var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         var response = await Mediator.Send(new GetActiveChatsQuery { UserId = userId });
 

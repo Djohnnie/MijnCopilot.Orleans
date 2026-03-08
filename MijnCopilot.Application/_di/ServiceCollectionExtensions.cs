@@ -1,7 +1,6 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MijnCopilot.Agents.DependencyInjection;
-using MijnCopilot.DataAccess.DependencyInjection;
 using System.Reflection;
 
 namespace MijnCopilot.Application.DependencyInjection;
@@ -19,7 +18,6 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddCopilotServices(configuration);
-        services.AddDataService();
 
         return services;
     }

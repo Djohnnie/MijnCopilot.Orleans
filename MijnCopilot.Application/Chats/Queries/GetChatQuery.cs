@@ -1,7 +1,6 @@
 ﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using MijnCopilot.DataAccess;
+using MijnCopilot.Contracts.Grains;
+using MijnCopilot.Contracts.Model;
 using MijnCopilot.Model;
 
 namespace MijnCopilot.Application.Chats.Queries;
@@ -16,8 +15,7 @@ public class GetChatResponse
     public Guid ChatId { get; set; }
     public string Title { get; set; }
     public DateTime StartedOn { get; set; }
-
-    public List<MessageDto> Messages { get; set; } = new List<MessageDto>();
+    public List<MessageDto> Messages { get; set; } = [];
 }
 
 public class MessageDto
@@ -40,61 +38,45 @@ public enum ChatRole
 
 public class GetChatQueryHandler : IRequestHandler<GetChatQuery, GetChatResponse>
 {
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IGrainFactory _grainFactory;
 
-    public GetChatQueryHandler(
-        IServiceScopeFactory serviceScopeFactory)
+    public GetChatQueryHandler(IGrainFactory grainFactory)
     {
-        _serviceScopeFactory = serviceScopeFactory;
+        _grainFactory = grainFactory;
     }
 
     public async Task<GetChatResponse> Handle(GetChatQuery request, CancellationToken cancellationToken)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<MijnCopilotDbContext>();
+        var chatGrain = _grainFactory.GetGrain<IChatGrain>(request.ChatId);
 
-        var chat = await dbContext.Chats
-            .Where(x => x.Id == request.ChatId && !x.IsArchived)
-            .Select(c => new GetChatResponse
-            {
-                ChatId = c.Id,
-                Title = c.Title,
-                StartedOn = c.StartedOn
-            })
-            .SingleOrDefaultAsync(cancellationToken);
-
-        var messages = await dbContext.Messages
-            .Where(m => m.Chat.Id == request.ChatId)
-            .OrderBy(m => m.PostedOn)
-            .Select(m => new MessageDto
-            {
-                Content = m.Content,
-                AgentName = m.AgentName,
-                Role = MapChatRole(m.Type),
-                PostedOn = m.PostedOn,
-                TokensUsed = m.TokensUsed,
-            })
-            .ToListAsync(cancellationToken);
+        var info = await chatGrain.GetInfoAsync();
+        var history = await chatGrain.GetHistoryAsync();
 
         return new GetChatResponse
         {
-            ChatId = chat?.ChatId ?? Guid.Empty,
-            Title = chat?.Title ?? string.Empty,
-            StartedOn = chat?.StartedOn ?? DateTime.MinValue,
-            Messages = messages
+            ChatId = info.Id,
+            Title = info.Title,
+            StartedOn = info.StartedOn,
+            Messages = history
+                .Select(m => new MessageDto
+                {
+                    Content = m.Content,
+                    AgentName = m.AgentName ?? string.Empty,
+                    Role = MapChatRole(m.Type),
+                    TokensUsed = m.TokensUsed,
+                    PostedOn = m.PostedOn
+                })
+                .ToList()
         };
     }
 
-    private static ChatRole MapChatRole(MessageType messageType)
+    private static ChatRole MapChatRole(MessageType messageType) => messageType switch
     {
-        return messageType switch
-        {
-            MessageType.Assistant => ChatRole.Assistant,
-            MessageType.User => ChatRole.User,
-            MessageType.Reduced => ChatRole.Reduced,
-            MessageType.DebugQuestion => ChatRole.DebugQuestion,
-            MessageType.DebugAnswer => ChatRole.DebugAnswer,
-            _ => throw new ArgumentOutOfRangeException(nameof(messageType), messageType, null)
-        };
-    }
+        MessageType.Assistant => ChatRole.Assistant,
+        MessageType.User => ChatRole.User,
+        MessageType.Reduced => ChatRole.Reduced,
+        MessageType.DebugQuestion => ChatRole.DebugQuestion,
+        MessageType.DebugAnswer => ChatRole.DebugAnswer,
+        _ => throw new ArgumentOutOfRangeException(nameof(messageType), messageType, null)
+    };
 }

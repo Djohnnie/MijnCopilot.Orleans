@@ -1,47 +1,61 @@
 using MijnCopilot.Contracts.Grains;
 using MijnCopilot.Contracts.Model;
 using MijnCopilot.Model;
+using Orleans.Runtime;
 
 namespace MijnCopilot.Orleans.Host.Grains;
 
+[GenerateSerializer]
+public class ChatGrainState
+{
+    [Id(0)] public string UserId { get; set; } = string.Empty;
+    [Id(1)] public string Title { get; set; } = string.Empty;
+    [Id(2)] public bool IsArchived { get; set; }
+    [Id(3)] public DateTime StartedOn { get; set; }
+    [Id(4)] public DateTime LastActivityOn { get; set; }
+    [Id(5)] public List<ChatMessageInfo> History { get; set; } = [];
+}
+
 public class ChatGrain : Grain, IChatGrain
 {
-    private string _userId = string.Empty;
-    private string _title = string.Empty;
-    private bool _isArchived;
-    private DateTime _startedOn;
-    private DateTime _lastActivityOn;
-    private readonly List<ChatMessageInfo> _history = [];
+    private readonly IPersistentState<ChatGrainState> _state;
+
+    public ChatGrain([PersistentState("state", "blob-store")] IPersistentState<ChatGrainState> state)
+    {
+        _state = state;
+    }
+
+    private ChatGrainState State => _state.State;
 
     public Task<ChatInfo> GetInfoAsync()
         => Task.FromResult(new ChatInfo
         {
             Id = this.GetPrimaryKey(),
-            UserId = _userId,
-            Title = _title,
-            IsArchived = _isArchived,
-            StartedOn = _startedOn,
-            LastActivityOn = _lastActivityOn
+            UserId = State.UserId,
+            Title = State.Title,
+            IsArchived = State.IsArchived,
+            StartedOn = State.StartedOn,
+            LastActivityOn = State.LastActivityOn
         });
 
-    public Task InitializeAsync(string userId, string title)
+    public async Task InitializeAsync(string userId, string title)
     {
-        if (_startedOn != default)
-            return Task.CompletedTask;
+        if (State.StartedOn != default)
+            return;
 
-        _userId = userId;
-        _title = title;
-        _startedOn = DateTime.UtcNow;
-        _lastActivityOn = _startedOn;
-        return Task.CompletedTask;
+        State.UserId = userId;
+        State.Title = title;
+        State.StartedOn = DateTime.UtcNow;
+        State.LastActivityOn = State.StartedOn;
+        await _state.WriteStateAsync();
     }
 
     public Task<IReadOnlyList<ChatMessageInfo>> GetHistoryAsync()
-        => Task.FromResult<IReadOnlyList<ChatMessageInfo>>(_history.AsReadOnly());
+        => Task.FromResult<IReadOnlyList<ChatMessageInfo>>(State.History.AsReadOnly());
 
-    public Task AddMessageAsync(MessageType type, string content, string? agentName = null, int tokensUsed = 0)
+    public async Task AddMessageAsync(MessageType type, string content, string? agentName = null, int tokensUsed = 0)
     {
-        _history.Add(new ChatMessageInfo
+        State.History.Add(new ChatMessageInfo
         {
             Id = Guid.NewGuid(),
             Type = type,
@@ -50,13 +64,13 @@ public class ChatGrain : Grain, IChatGrain
             TokensUsed = tokensUsed,
             PostedOn = DateTime.UtcNow
         });
-        _lastActivityOn = DateTime.UtcNow;
-        return Task.CompletedTask;
+        State.LastActivityOn = DateTime.UtcNow;
+        await _state.WriteStateAsync();
     }
 
-    public Task ArchiveAsync()
+    public async Task ArchiveAsync()
     {
-        _isArchived = true;
-        return Task.CompletedTask;
+        State.IsArchived = true;
+        await _state.WriteStateAsync();
     }
 }

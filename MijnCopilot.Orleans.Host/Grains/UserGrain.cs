@@ -1,49 +1,62 @@
 using MijnCopilot.Contracts.Grains;
 using MijnCopilot.Contracts.Model;
+using Orleans.Runtime;
 
 namespace MijnCopilot.Orleans.Host.Grains;
 
+[GenerateSerializer]
+public class UserGrainState
+{
+    [Id(0)] public string Name { get; set; } = string.Empty;
+    [Id(1)] public string Email { get; set; } = string.Empty;
+    [Id(2)] public DateTime LastSeenOn { get; set; }
+    [Id(3)] public List<Guid> ChatIds { get; set; } = [];
+}
+
 public class UserGrain : Grain, IUserGrain
 {
-    private string _name = string.Empty;
-    private string _email = string.Empty;
-    private DateTime _lastSeenOn = DateTime.UtcNow;
-    private readonly List<Guid> _chatIds = [];
+    private readonly IPersistentState<UserGrainState> _state;
 
-    public Task<UserInfo> GetInfoAsync()
+    public UserGrain([PersistentState("state", "blob-store")] IPersistentState<UserGrainState> state)
     {
-        _lastSeenOn = DateTime.UtcNow;
-        return Task.FromResult(new UserInfo
-        {
-            UserId = this.GetPrimaryKeyString(),
-            Name = _name,
-            Email = _email,
-            LastSeenOn = _lastSeenOn
-        });
+        _state = state;
     }
 
-    public Task SetInfoAsync(string name, string email)
+    private UserGrainState State => _state.State;
+
+    public Task<UserInfo> GetInfoAsync()
+        => Task.FromResult(new UserInfo
+        {
+            UserId = this.GetPrimaryKeyString(),
+            Name = State.Name,
+            Email = State.Email,
+            LastSeenOn = State.LastSeenOn
+        });
+
+    public async Task SetInfoAsync(string name, string email)
     {
-        _name = name;
-        _email = email;
-        _lastSeenOn = DateTime.UtcNow;
-        return Task.CompletedTask;
+        State.Name = name;
+        State.Email = email;
+        State.LastSeenOn = DateTime.UtcNow;
+        await _state.WriteStateAsync();
     }
 
     public Task<IReadOnlyList<Guid>> GetChatIdsAsync()
-        => Task.FromResult<IReadOnlyList<Guid>>(_chatIds.AsReadOnly());
+        => Task.FromResult<IReadOnlyList<Guid>>(State.ChatIds.AsReadOnly());
 
-    public Task AddChatAsync(Guid chatId)
+    public async Task AddChatAsync(Guid chatId)
     {
-        if (!_chatIds.Contains(chatId))
-            _chatIds.Add(chatId);
-        return Task.CompletedTask;
+        if (!State.ChatIds.Contains(chatId))
+        {
+            State.ChatIds.Add(chatId);
+            await _state.WriteStateAsync();
+        }
     }
 
-    public Task RemoveChatAsync(Guid chatId)
+    public async Task RemoveChatAsync(Guid chatId)
     {
-        _chatIds.Remove(chatId);
-        return Task.CompletedTask;
+        if (State.ChatIds.Remove(chatId))
+            await _state.WriteStateAsync();
     }
 
     public Task DeactivateAsync()

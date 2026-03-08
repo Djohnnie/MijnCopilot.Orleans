@@ -1,9 +1,7 @@
-﻿using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using MediatR;
 using MijnCopilot.Agents;
 using MijnCopilot.Agents.Model;
-using MijnCopilot.DataAccess;
+using MijnCopilot.Contracts.Grains;
 using MijnCopilot.Model;
 
 namespace MijnCopilot.Application.Agents.Commands;
@@ -22,28 +20,22 @@ public class ChatResponse
 
 public class ChatCommandHandler : IRequestHandler<ChatCommand, ChatResponse>
 {
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IGrainFactory _grainFactory;
     private readonly ICopilotHelper _copilotHelper;
 
-    public ChatCommandHandler(
-        IServiceScopeFactory serviceScopeFactory,
-        ICopilotHelper copilotHelper)
+    public ChatCommandHandler(IGrainFactory grainFactory, ICopilotHelper copilotHelper)
     {
-        _serviceScopeFactory = serviceScopeFactory;
+        _grainFactory = grainFactory;
         _copilotHelper = copilotHelper;
     }
+
     public async Task<ChatResponse> Handle(ChatCommand request, CancellationToken cancellationToken)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<MijnCopilotDbContext>();
-
-        var messages = await dbContext.Messages
-            .Where(m => m.Chat.Id == request.ChatId)
-            .OrderBy(m => m.PostedOn)
-            .ToListAsync(cancellationToken);
+        var chatGrain = _grainFactory.GetGrain<IChatGrain>(request.ChatId);
+        var history = await chatGrain.GetHistoryAsync();
 
         var chatHistory = new CopilotChatHistory();
-        foreach (var message in messages)
+        foreach (var message in history)
         {
             switch (message.Type)
             {
@@ -63,68 +55,26 @@ public class ChatCommandHandler : IRequestHandler<ChatCommand, ChatResponse>
 
         var copilotResponse = await _copilotHelper.Chat(chatHistory);
 
-        var chat = await dbContext.Chats.SingleOrDefaultAsync(x => x.Id == request.ChatId, cancellationToken);
-
         if (!request.IgnoreRequest)
         {
-            dbContext.Messages.Add(new Message
-            {
-                Id = Guid.NewGuid(),
-                Chat = chat,
-                Content = request.Request,
-                AgentName = string.Empty,
-                PostedOn = DateTime.UtcNow,
-                TokensUsed = copilotResponse.InputTokenCount,
-                Type = MessageType.User
-            });
+            await chatGrain.AddMessageAsync(MessageType.User, request.Request, string.Empty, copilotResponse.InputTokenCount);
         }
-        else
-        {
-            var message = await dbContext.Messages
-                .Where(m => m.Chat.Id == request.ChatId)
-                .OrderByDescending(m => m.PostedOn)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (message != null)
-            {
-                message.AgentName = copilotResponse.AgentName;
-                message.TokensUsed += copilotResponse.InputTokenCount;
-                await dbContext.SaveChangesAsync(cancellationToken);
-            }
-        }
-
-        await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (var debugMessage in copilotResponse.Debug)
         {
-            dbContext.Messages.Add(new Message
-            {
-                Id = Guid.NewGuid(),
-                Chat = chat,
-                Content = debugMessage.Content,
-                AgentName = debugMessage.AgentName,
-                PostedOn = DateTime.UtcNow,
-                TokensUsed = 0,
-                Type = debugMessage.IsQuestion ? MessageType.DebugQuestion : MessageType.DebugAnswer
-            });
+            await chatGrain.AddMessageAsync(
+                debugMessage.IsQuestion ? MessageType.DebugQuestion : MessageType.DebugAnswer,
+                debugMessage.Content,
+                debugMessage.AgentName,
+                0);
         }
 
-        dbContext.Messages.Add(new Message
-        {
-            Id = Guid.NewGuid(),
-            Chat = chat,
-            Content = copilotResponse.LastAssistantMessage,
-            AgentName = copilotResponse.AgentName,
-            PostedOn = DateTime.UtcNow,
-            TokensUsed = copilotResponse.OutputTokenCount,
-            Type = MessageType.Assistant
-        });
+        await chatGrain.AddMessageAsync(
+            MessageType.Assistant,
+            copilotResponse.LastAssistantMessage,
+            copilotResponse.AgentName,
+            copilotResponse.OutputTokenCount);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return new ChatResponse
-        {
-            Response = copilotResponse.LastAssistantMessage
-        };
+        return new ChatResponse { Response = copilotResponse.LastAssistantMessage };
     }
 }
