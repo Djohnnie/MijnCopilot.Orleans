@@ -13,12 +13,12 @@
         <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" />
         <AuthorizeView>
             <NotAuthorized>
-                <MudButton Href="/Login" Color="Color.Inherit">Log in</MudButton>
+                <MudButton Href="/Login" Color="Color.Inherit">Inloggen</MudButton>
             </NotAuthorized>
             <Authorized>
-                <MudText Typo="Typo.body2" Class="mr-2">Hello, @context.User.FindFirst("nickname")?.Value!</MudText>
-                <MudButton Href="/Profile" Color="Color.Inherit">Profile</MudButton>
-                <MudButton Href="/Logout" Color="Color.Inherit">Log out</MudButton>
+                <MudText Typo="Typo.body2" Class="mr-2">Hallo, @context.User.FindFirst("nickname")?.Value!</MudText>
+                <MudButton Href="/Profile" Color="Color.Inherit">Profiel</MudButton>
+                <MudButton Href="/Logout" Color="Color.Inherit">Uitloggen</MudButton>
             </Authorized>
         </AuthorizeView>
     </MudAppBar>
