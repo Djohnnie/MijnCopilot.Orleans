@@ -1,6 +1,6 @@
 using MijnCopilot.Contracts.Grains;
 using MijnCopilot.Contracts.Model;
-using Orleans.Runtime;
+using Orleans.Placement;
 
 namespace MijnCopilot.Orleans.Host.Grains;
 
@@ -13,6 +13,7 @@ public class UserGrainState
     [Id(3)] public List<Guid> ChatIds { get; set; } = [];
 }
 
+[PreferLocalPlacement]
 public class UserGrain : Grain, IUserGrain
 {
     private readonly IPersistentState<UserGrainState> _state;
