@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using MijnCopilot.Agents.DependencyInjection;
 using System.Reflection;
 
 namespace MijnCopilot.Application.DependencyInjection;
@@ -16,8 +15,6 @@ public static class ServiceCollectionExtensions
             c.LicenseKey = licenseKey;
             c.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly());
         });
-
-        services.AddCopilotServices(configuration);
 
         return services;
     }

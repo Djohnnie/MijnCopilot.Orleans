@@ -1,5 +1,4 @@
 @using MediatR
-@using MijnCopilot.Application.Agents.Commands
 @using MijnCopilot.Application.Chats.Commands
 @using MijnCopilot.Web.Helpers
 @using Microsoft.AspNetCore.Components.Authorization
@@ -85,20 +84,13 @@
 
         StateHasChanged();
 
-        var keyword = await Mediator.Send(new GenerateKeywordFromRequestCommand
-        {
-            Request = _request
-        });
-
         var response = await Mediator.Send(new CreateNewChatCommand
         {
             UserId = _userId,
-            Title = keyword.Keyword,
-            Request = _request,
-            TokensUsed = keyword.InputTokenCount + keyword.OutputTokenCount
+            Request = _request
         });
 
-        NavigationHelper.AddLink(response.ChatId, keyword.Keyword, $"/chat/{response.ChatId}", insert: true);
+        NavigationHelper.AddLink(response.ChatId, response.Title, $"/chat/{response.ChatId}", insert: true);
         NavigationManager.NavigateTo($"/chat/{response.ChatId}?isChatting=true");
     }
 

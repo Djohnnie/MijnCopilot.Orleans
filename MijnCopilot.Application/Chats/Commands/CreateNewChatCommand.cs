@@ -1,20 +1,18 @@
 ﻿using MediatR;
 using MijnCopilot.Contracts.Grains;
-using MijnCopilot.Model;
 
 namespace MijnCopilot.Application.Chats.Commands;
 
-public class CreateNewChatCommand : IRequest<CreateNewChatResponse>
+public class CreateNewChatCommand : MediatR.IRequest<CreateNewChatResponse>
 {
     public string UserId { get; set; }
-    public string Title { get; set; }
     public string Request { get; set; }
-    public int TokensUsed { get; set; }
 }
 
 public class CreateNewChatResponse
 {
     public Guid ChatId { get; set; }
+    public string Title { get; set; }
 }
 
 public class CreateNewChatCommandHandler : IRequestHandler<CreateNewChatCommand, CreateNewChatResponse>
@@ -28,15 +26,8 @@ public class CreateNewChatCommandHandler : IRequestHandler<CreateNewChatCommand,
 
     public async Task<CreateNewChatResponse> Handle(CreateNewChatCommand request, CancellationToken cancellationToken)
     {
-        var chatId = Guid.NewGuid();
-
-        var chatGrain = _grainFactory.GetGrain<IChatGrain>(chatId);
-        await chatGrain.InitializeAsync(request.UserId, request.Title);
-        await chatGrain.AddMessageAsync(MessageType.User, request.Request, null, request.TokensUsed);
-
         var userGrain = _grainFactory.GetGrain<IUserGrain>(request.UserId);
-        await userGrain.AddChatAsync(chatId);
-
-        return new CreateNewChatResponse { ChatId = chatId };
+        var chatInfo = await userGrain.CreateChatAsync(request.Request);
+        return new CreateNewChatResponse { ChatId = chatInfo.Id, Title = chatInfo.Title };
     }
 }

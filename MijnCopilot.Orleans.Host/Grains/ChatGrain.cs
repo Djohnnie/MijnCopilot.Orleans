@@ -1,7 +1,10 @@
+using MijnCopilot.Agents;
+using MijnCopilot.Agents.Model;
 using MijnCopilot.Contracts.Grains;
 using MijnCopilot.Contracts.Model;
 using MijnCopilot.Model;
 using Orleans.Placement;
+using Orleans.Runtime;
 
 namespace MijnCopilot.Orleans.Host.Grains;
 
@@ -20,10 +23,14 @@ public class ChatGrainState
 public class ChatGrain : Grain, IChatGrain
 {
     private readonly IPersistentState<ChatGrainState> _state;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public ChatGrain([PersistentState("state", "blob-store")] IPersistentState<ChatGrainState> state)
+    public ChatGrain(
+        [PersistentState("state", "blob-store")] IPersistentState<ChatGrainState> state,
+        IServiceScopeFactory scopeFactory)
     {
         _state = state;
+        _scopeFactory = scopeFactory;
     }
 
     private ChatGrainState State => _state.State;
@@ -67,6 +74,67 @@ public class ChatGrain : Grain, IChatGrain
         });
         State.LastActivityOn = DateTime.UtcNow;
         await _state.WriteStateAsync();
+    }
+
+    public async Task<string> ChatAsync(string request, bool ignoreRequest)
+    {
+        var chatHistory = new CopilotChatHistory();
+        foreach (var message in State.History)
+        {
+            switch (message.Type)
+            {
+                case MessageType.User:
+                    chatHistory.AddUserMessage(message.Content);
+                    break;
+                case MessageType.Assistant:
+                    chatHistory.AddAssistantMessage(message.Content);
+                    break;
+            }
+        }
+
+        if (!ignoreRequest)
+            chatHistory.AddUserMessage(request);
+
+        using var scope = _scopeFactory.CreateScope();
+        var copilotHelper = scope.ServiceProvider.GetRequiredService<ICopilotHelper>();
+        var copilotResponse = await copilotHelper.Chat(chatHistory);
+
+        if (!ignoreRequest)
+            State.History.Add(new ChatMessageInfo
+            {
+                Id = Guid.NewGuid(),
+                Type = MessageType.User,
+                Content = request,
+                AgentName = string.Empty,
+                TokensUsed = copilotResponse.InputTokenCount,
+                PostedOn = DateTime.UtcNow
+            });
+
+        foreach (var debug in copilotResponse.Debug)
+            State.History.Add(new ChatMessageInfo
+            {
+                Id = Guid.NewGuid(),
+                Type = debug.IsQuestion ? MessageType.DebugQuestion : MessageType.DebugAnswer,
+                Content = debug.Content,
+                AgentName = debug.AgentName,
+                TokensUsed = 0,
+                PostedOn = DateTime.UtcNow
+            });
+
+        State.History.Add(new ChatMessageInfo
+        {
+            Id = Guid.NewGuid(),
+            Type = MessageType.Assistant,
+            Content = copilotResponse.LastAssistantMessage,
+            AgentName = copilotResponse.AgentName,
+            TokensUsed = copilotResponse.OutputTokenCount,
+            PostedOn = DateTime.UtcNow
+        });
+
+        State.LastActivityOn = DateTime.UtcNow;
+        await _state.WriteStateAsync();
+
+        return copilotResponse.LastAssistantMessage;
     }
 
     public async Task ArchiveAsync()

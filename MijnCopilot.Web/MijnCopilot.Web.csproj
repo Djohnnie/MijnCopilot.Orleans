@@ -14,7 +14,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\MijnCopilot.Agents\MijnCopilot.Agents.csproj" />
 		<ProjectReference Include="..\MijnCopilot.Application\MijnCopilot.Application.csproj" />
 		<ProjectReference Include="..\MijnCopilot.Contracts\MijnCopilot.Contracts.csproj" />
 	</ItemGroup>

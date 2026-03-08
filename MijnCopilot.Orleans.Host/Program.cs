@@ -1,3 +1,4 @@
+using MijnCopilot.Agents.DependencyInjection;
 using Azure.Data.Tables;
 using Azure.Storage.Blobs;
 using Orleans.Configuration;
@@ -46,6 +47,8 @@ builder.UseOrleans(siloBuilder =>
         })
         .AddDashboard();
 });
+
+builder.Services.AddCopilotServices(builder.Configuration);
 
 var app = builder.Build();
 
