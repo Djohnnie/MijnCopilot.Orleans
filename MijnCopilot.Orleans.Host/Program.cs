@@ -1,15 +1,17 @@
-var builder = Host.CreateApplicationBuilder(args);
+using Orleans.Dashboard;
+
+var builder = WebApplication.CreateBuilder(args);
 
 builder.UseOrleans(siloBuilder =>
 {
     siloBuilder
         .UseLocalhostClustering()
         .AddMemoryGrainStorageAsDefault()
-        .UseDashboard(options =>
-        {
-            options.HostSelf = true;
-            options.Port = 8080;
-        });
+        .AddDashboard();
 });
 
-await builder.Build().RunAsync();
+var app = builder.Build();
+
+app.MapOrleansDashboard();
+
+await app.RunAsync();
