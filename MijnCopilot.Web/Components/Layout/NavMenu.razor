@@ -2,6 +2,7 @@
 @using MijnCopilot.Application.Chats.Queries
 @using MijnCopilot.Web.Helpers
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 
 @implements IDisposable
 
@@ -36,7 +37,9 @@
             return;
         }
 
-        var response = await Mediator.Send(new GetActiveChatsQuery());
+        var userId = authState.User.FindFirst(ClaimTypes.Sid)?.Value ?? string.Empty;
+
+        var response = await Mediator.Send(new GetActiveChatsQuery { UserId = userId });
 
         response.Chats.ForEach(chat =>
         {

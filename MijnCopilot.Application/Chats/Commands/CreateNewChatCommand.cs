@@ -7,6 +7,7 @@ namespace MijnCopilot.Application.Chats.Commands;
 
 public class CreateNewChatCommand : IRequest<CreateNewChatResponse>
 {
+    public string UserId { get; set; }
     public string Title { get; set; }
     public string Request { get; set; }
     public int TokensUsed { get; set; }
@@ -37,6 +38,7 @@ public class CreateNewChatCommandHandler : IRequestHandler<CreateNewChatCommand,
         var chat = new Chat
         {
             Id = chatId,
+            UserId = request.UserId,
             Title = request.Title,
             StartedOn = timestamp,
             LastActivityOn = timestamp

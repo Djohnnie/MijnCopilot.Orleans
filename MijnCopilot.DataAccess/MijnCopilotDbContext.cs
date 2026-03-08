@@ -30,6 +30,7 @@ public class MijnCopilotDbContext : DbContext
             entityBuilder.Property(x => x.SysId).ValueGeneratedOnAdd();
             entityBuilder.HasIndex(x => x.SysId).IsClustered();
             entityBuilder.HasIndex(x => x.StartedOn);
+            entityBuilder.HasIndex(x => x.UserId);
         });
 
         modelBuilder.Entity<Message>(entityBuilder =>

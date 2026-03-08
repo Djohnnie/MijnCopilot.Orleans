@@ -7,6 +7,7 @@ namespace MijnCopilot.Application.Chats.Queries;
 
 public class GetActiveChatsQuery : IRequest<GetActiveChatsResponse>
 {
+    public string UserId { get; set; }
 }
 
 public class GetActiveChatsResponse
@@ -36,7 +37,7 @@ public class GetActiveChatsQueryHandler : IRequestHandler<GetActiveChatsQuery, G
         var dbContext = scope.ServiceProvider.GetRequiredService<MijnCopilotDbContext>();
 
         var chats = await dbContext.Chats
-            .Where(x => !x.IsArchived)
+            .Where(x => !x.IsArchived && x.UserId == request.UserId)
             .OrderByDescending(x => x.StartedOn)
             .Select(c => new ChatDto
             {
