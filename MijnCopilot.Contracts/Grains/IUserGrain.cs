@@ -9,4 +9,5 @@ public interface IUserGrain : IGrainWithStringKey
     Task<IReadOnlyList<Guid>> GetChatIdsAsync();
     Task AddChatAsync(Guid chatId);
     Task RemoveChatAsync(Guid chatId);
+    Task DeactivateAsync();
 }

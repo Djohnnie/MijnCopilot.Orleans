@@ -9,11 +9,13 @@
 	<ItemGroup>
 		<PackageReference Include="MediatR" Version="14.1.0" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.3" />
+		<PackageReference Include="Microsoft.Orleans.Sdk" Version="10.0.1" />
 		<PackageReference Include="ModelContextProtocol" Version="1.1.0" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\MijnCopilot.Agents\MijnCopilot.Agents.csproj" />
+		<ProjectReference Include="..\MijnCopilot.Contracts\MijnCopilot.Contracts.csproj" />
 		<ProjectReference Include="..\MijnCopilot.DataAccess\MijnCopilot.DataAccess.csproj" />
 	</ItemGroup>
 

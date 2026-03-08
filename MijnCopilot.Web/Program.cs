@@ -1,11 +1,19 @@
-﻿using Auth0.AspNetCore.Authentication;
+﻿using System.Security.Claims;
+using Auth0.AspNetCore.Authentication;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using MijnCopilot.Application.DependencyInjection;
+using MijnCopilot.Application.User.Commands;
 using MijnCopilot.Web.Components;
 using MijnCopilot.Web.Helpers;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.UseOrleansClient(clientBuilder =>
+{
+    clientBuilder.UseLocalhostClustering();
+});
 
 builder.Services.AddAuth0WebAppAuthentication(options =>
 {
@@ -20,6 +28,22 @@ builder.Services.Configure<CookieAuthenticationOptions>(
     {
         options.LoginPath = "/Login";
         options.LogoutPath = "/Logout";
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnSignedIn = async context =>
+            {
+                var userId = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId)) return;
+
+                var name = context.Principal?.FindFirst("nickname")?.Value
+                           ?? context.Principal?.Identity?.Name
+                           ?? string.Empty;
+                var email = context.Principal?.FindFirst("email")?.Value ?? string.Empty;
+
+                var mediator = context.HttpContext.RequestServices.GetRequiredService<IMediator>();
+                await mediator.Send(new UserLoginCommand { UserId = userId, Name = name, Email = email });
+            }
+        };
     });
 
 builder.Services.AddApplicationServices(builder.Configuration);

@@ -45,4 +45,10 @@ public class UserGrain : Grain, IUserGrain
         _chatIds.Remove(chatId);
         return Task.CompletedTask;
     }
+
+    public Task DeactivateAsync()
+    {
+        DeactivateOnIdle();
+        return Task.CompletedTask;
+    }
 }
