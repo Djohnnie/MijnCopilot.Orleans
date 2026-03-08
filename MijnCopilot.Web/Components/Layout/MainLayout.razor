@@ -11,6 +11,16 @@
         <MudText Typo="Typo.h6" Class="ml-3">MijnCopilot</MudText>
         <MudSpacer />
         <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" />
+        <AuthorizeView>
+            <NotAuthorized>
+                <MudButton Href="/Login" Color="Color.Inherit">Log in</MudButton>
+            </NotAuthorized>
+            <Authorized>
+                <MudText Typo="Typo.body2" Class="mr-2">Hello, @context.User.Identity?.Name!</MudText>
+                <MudButton Href="/Profile" Color="Color.Inherit">Profile</MudButton>
+                <MudButton Href="/Logout" Color="Color.Inherit">Log out</MudButton>
+            </Authorized>
+        </AuthorizeView>
     </MudAppBar>
     <MudDrawer id="nav-drawer" @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
