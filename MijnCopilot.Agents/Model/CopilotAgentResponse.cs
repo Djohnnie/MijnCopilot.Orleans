@@ -1,9 +1,10 @@
 ﻿namespace MijnCopilot.Agents.Model;
 
+[GenerateSerializer]
 public class CopilotAgentResponse
 {
-    public string Response { get; set; } = string.Empty;
-    public string AgentName { get; set; } = string.Empty;
-    public int InputTokenCount { get; set; } = 0;
-    public int OutputTokenCount { get; set; } = 0;
+    [Id(0)] public string Response { get; set; } = string.Empty;
+    [Id(1)] public string AgentName { get; set; } = string.Empty;
+    [Id(2)] public int InputTokenCount { get; set; } = 0;
+    [Id(3)] public int OutputTokenCount { get; set; } = 0;
 }

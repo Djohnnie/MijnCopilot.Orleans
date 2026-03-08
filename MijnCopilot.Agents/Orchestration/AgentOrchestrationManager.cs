@@ -11,56 +11,25 @@ public interface IAgentOrchestrationManager
 
 internal class AgentOrchestrationManager : IAgentOrchestrationManager
 {
-    private readonly SummaryAgentFactory _summaryAgentFactory;
-    private readonly OrchestratorAgentFactory _orchestratorAgentFactory;
-    private readonly ReplyAgentFactory _replyAgentFactory;
-    private readonly GeneralAgentFactory _generalAgentFactory;
-    private readonly MijnThuisPowerAgentFactory _mijnThuisPowerAgentFactory;
-    private readonly MijnThuisSolarAgentFactory _mijnThuisSolarAgentFactory;
-    private readonly MijnThuisCarAgentFactory _mijnThuisCarAgentFactory;
-    private readonly MijnThuisHeatingAgentFactory _mijnThuisHeatingAgentFactory;
-    private readonly MijnThuisSmartLockAgentFactory _mijnThuisSmartLockAgentFactory;
-    private readonly MijnSaunaAgentFactory _mijnSaunaAgentFactory;
-    private readonly PhotoCarouselAgentFactory _photoCarouselAgentFactory;
+    private readonly IAgentFactory _agentFactory;
+    private readonly IAgentRunner _agentRunner;
 
-    private readonly Dictionary<string, AgentFactoryBase> _agents;
+    private static readonly AgentType[] _orchestratedAgentTypes =
+    [
+        AgentType.General,
+        AgentType.MijnThuisPower,
+        AgentType.MijnThuisSolar,
+        AgentType.MijnThuisCar,
+        AgentType.MijnThuisHeating,
+        AgentType.MijnThuisSmartLock,
+        AgentType.MijnSauna,
+        AgentType.PhotoCarousel,
+    ];
 
-    public AgentOrchestrationManager(
-        SummaryAgentFactory summaryAgentFactory,
-        OrchestratorAgentFactory orchestratorAgentFactory,
-        ReplyAgentFactory replyAgentFactory,
-        GeneralAgentFactory generalAgentFactory,
-        MijnThuisPowerAgentFactory mijnThuisPowerAgentFactory,
-        MijnThuisSolarAgentFactory mijnThuisSolarAgentFactory,
-        MijnThuisCarAgentFactory mijnThuisCarAgentFactory,
-        MijnThuisHeatingAgentFactory mijnThuisHeatingAgentFactory,
-        MijnThuisSmartLockAgentFactory mijnThuisSmartLockAgentFactory,
-        MijnSaunaAgentFactory mijnSaunaAgentFactory,
-        PhotoCarouselAgentFactory photoCarouselAgentFactory)
+    public AgentOrchestrationManager(IAgentFactory agentFactory, IAgentRunner agentRunner)
     {
-        _summaryAgentFactory = summaryAgentFactory;
-        _orchestratorAgentFactory = orchestratorAgentFactory;
-        _replyAgentFactory = replyAgentFactory;
-        _generalAgentFactory = generalAgentFactory;
-        _mijnThuisPowerAgentFactory = mijnThuisPowerAgentFactory;
-        _mijnThuisSolarAgentFactory = mijnThuisSolarAgentFactory;
-        _mijnThuisCarAgentFactory = mijnThuisCarAgentFactory;
-        _mijnThuisHeatingAgentFactory = mijnThuisHeatingAgentFactory;
-        _mijnThuisSmartLockAgentFactory = mijnThuisSmartLockAgentFactory;
-        _mijnSaunaAgentFactory = mijnSaunaAgentFactory;
-        _photoCarouselAgentFactory = photoCarouselAgentFactory;
-
-        _agents = new Dictionary<string, AgentFactoryBase>
-        {
-            { "General", _generalAgentFactory },
-            { "MijnThuisPower", _mijnThuisPowerAgentFactory },
-            { "MijnThuisSolar", _mijnThuisSolarAgentFactory },
-            { "MijnThuisCar", _mijnThuisCarAgentFactory },
-            { "MijnThuisHeating", _mijnThuisHeatingAgentFactory },
-            { "MijnThuisSmartLock", _mijnThuisSmartLockAgentFactory },
-            { "MijnSauna", _mijnSaunaAgentFactory },
-            { "PhotoCarousel", _photoCarouselAgentFactory }
-        };
+        _agentFactory = agentFactory;
+        _agentRunner = agentRunner;
     }
 
     public async Task<CopilotChatHistory> Chat(CopilotChatHistory chat)
@@ -68,43 +37,44 @@ internal class AgentOrchestrationManager : IAgentOrchestrationManager
         var workingChat = chat.Copy();
 
         // 1. Summarize the conversation so far to focus on the question asked by the user.
-        var summaryAgent = await _summaryAgentFactory.Create();
-        var summaryResponse = await summaryAgent.Chat(workingChat);
+        var summaryResponse = await _agentFactory.RunAsync(AgentType.Summary, workingChat);
         workingChat.InputTokenCount += summaryResponse.InputTokenCount;
         workingChat.OutputTokenCount += summaryResponse.OutputTokenCount;
-        workingChat.AddDebug(isQuestion: true, summaryResponse.Response, summaryAgent.Agent.Name);
+        workingChat.AddDebug(isQuestion: true, summaryResponse.Response, summaryResponse.AgentName);
 
-        // 2. 
-        var agents = string.Join(",", _agents.Select(x => $"Name: {x.Key}; Description: {x.Value.AgentDescription}"));
+        // 2. Build the orchestrator prompt listing available agents and their descriptions.
+        var agents = string.Join(",", _orchestratedAgentTypes.Select(t => $"Name: {t}; Description: {_agentRunner.GetDescription(t)}"));
         var systemPromptBuilder = new StringBuilder();
         systemPromptBuilder.AppendLine("Based on the conversation so far, which agents are best suited to respond to the questions asked?");
         systemPromptBuilder.AppendLine($"The available agents are: {agents}.");
         systemPromptBuilder.AppendLine("If the question exists out of multiple sub-questions, start by rewriting the original question in multiple distinct questions.");
         systemPromptBuilder.AppendLine("Next: For each question, select the most appropriate agent from the list of available agents.");
         systemPromptBuilder.AppendLine("Respond with a line for each question, including the rewritten question followed by a semicolon, followed by the name of the agent that should answer that question.");
-        
+
         var orchestratorChatHistory = new CopilotChatHistory();
         orchestratorChatHistory.AddSystemMessage(systemPromptBuilder.ToString());
         orchestratorChatHistory.AddUserMessage(summaryResponse.Response);
 
-        // 3. Orchestrate the conversation and 
-        var orchestratorAgent = await _orchestratorAgentFactory.Create();
-        var orchestratorResponse = await orchestratorAgent.Chat(orchestratorChatHistory);
+        // 3. Ask the orchestrator to assign questions to the correct agents.
+        var orchestratorResponse = await _agentFactory.RunAsync(AgentType.Orchestrator, orchestratorChatHistory);
         workingChat.InputTokenCount += orchestratorResponse.InputTokenCount;
         workingChat.OutputTokenCount += orchestratorResponse.OutputTokenCount;
 
+        // 4. Run the assigned agents in parallel.
         var agentTasks = new List<(string Question, Task<CopilotAgentResponse> Task)>();
         foreach (var line in orchestratorResponse.Response.Split("\n"))
         {
             var parts = line.Split(";");
-            var agentFactory = _agents[parts[1].Trim()];
-            var agent = await agentFactory.Create();
-            agentTasks.Add((parts[0], agent.Chat(new CopilotChatHistory(parts[0], CopilotChatRole.User))));
+            if (parts.Length < 2) continue;
+
+            var question = parts[0].Trim();
+            var agentType = Enum.Parse<AgentType>(parts[1].Trim());
+            agentTasks.Add((question, _agentFactory.RunAsync(agentType, new CopilotChatHistory(question, CopilotChatRole.User))));
         }
 
         var responses = await Task.WhenAll(agentTasks.Select(x => x.Task));
 
-        var replyAgent = await _replyAgentFactory.Create();
+        // 5. Combine agent responses into a single reply.
         var replyAgentChat = new CopilotChatHistory();
         replyAgentChat.AddUserMessage(summaryResponse.Response);
         foreach (var (agentTask, response) in agentTasks.Zip(responses))
@@ -116,8 +86,8 @@ internal class AgentOrchestrationManager : IAgentOrchestrationManager
             workingChat.AddDebug(isQuestion: false, response.Response, response.AgentName);
         }
 
-        var replyResponse = await replyAgent.Chat(replyAgentChat);
-        workingChat.AddDebug(isQuestion: false, replyResponse.Response, replyAgent.Agent.Name);
+        var replyResponse = await _agentFactory.RunAsync(AgentType.Reply, replyAgentChat);
+        workingChat.AddDebug(isQuestion: false, replyResponse.Response, replyResponse.AgentName);
 
         workingChat.AddAssistantMessage(replyResponse.Response);
         workingChat.LastAssistantMessage = replyResponse.Response;

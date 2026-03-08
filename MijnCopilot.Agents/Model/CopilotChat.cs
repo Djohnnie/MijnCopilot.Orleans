@@ -1,7 +1,8 @@
 ﻿namespace MijnCopilot.Agents.Model;
 
+[GenerateSerializer]
 public class CopilotChat
 {
-    public CopilotChatRole Role { get; set; }
-    public string Content { get; set; } = string.Empty;
+    [Id(0)] public CopilotChatRole Role { get; set; }
+    [Id(1)] public string Content { get; set; } = string.Empty;
 }

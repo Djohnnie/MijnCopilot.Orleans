@@ -10,6 +10,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<ICopilotHelper, CopilotHelper>();
         services.AddScoped<IAgentFactory, AgentFactory>();
+        services.AddScoped<IAgentRunner, AgentRunner>();
         services.AddScoped<KeywordAgentFactory>();
         services.AddScoped<SummaryAgentFactory>();
         services.AddScoped<OrchestratorAgentFactory>();

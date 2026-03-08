@@ -2,14 +2,15 @@
 
 namespace MijnCopilot.Agents.Model;
 
+[GenerateSerializer]
 public class CopilotChatHistory
 {
-    public List<CopilotChat> Messages { get; private set; } = new List<CopilotChat>();
-    public List<DebugChat> Debug { get; private set; } = new List<DebugChat>();
-    public string LastAssistantMessage { get; set; }
-    public string AgentName { get; set; }
-    public int InputTokenCount { get; set; }
-    public int OutputTokenCount { get; set; }
+    [Id(0)] public List<CopilotChat> Messages { get; set; } = new List<CopilotChat>();
+    [Id(1)] public List<DebugChat> Debug { get; set; } = new List<DebugChat>();
+    [Id(2)] public string LastAssistantMessage { get; set; }
+    [Id(3)] public string AgentName { get; set; }
+    [Id(4)] public int InputTokenCount { get; set; }
+    [Id(5)] public int OutputTokenCount { get; set; }
 
     public int MessageCount => Messages.Count;
 

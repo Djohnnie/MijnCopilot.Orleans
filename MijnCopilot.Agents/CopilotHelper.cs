@@ -28,8 +28,7 @@ internal class CopilotHelper : ICopilotHelper
 
     public async Task<CopilotKeywordResult> GenerateKeyword(string request)
     {
-        var agent = await _agentFactory.Create(AgentType.Keyword);
-        var response = await agent.Chat(new CopilotChatHistory(request, CopilotChatRole.User));
+        var response = await _agentFactory.RunAsync(AgentType.Keyword, new CopilotChatHistory(request, CopilotChatRole.User));
 
         return new CopilotKeywordResult
         {

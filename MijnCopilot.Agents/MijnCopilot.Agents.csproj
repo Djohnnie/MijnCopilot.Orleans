@@ -8,6 +8,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Azure.AI.OpenAI" Version="2.8.0-beta.1" />
+		<PackageReference Include="Microsoft.Orleans.Sdk" Version="10.0.1" />
 		<PackageReference Include="ModelContextProtocol" Version="1.1.0" />
 		<PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.0.0-rc3" />
 		<PackageReference Include="Microsoft.Extensions.AI" Version="10.3.0" />
