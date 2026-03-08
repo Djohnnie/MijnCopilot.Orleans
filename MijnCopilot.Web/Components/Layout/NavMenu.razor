@@ -1,14 +1,17 @@
 ﻿@using MediatR
 @using MijnCopilot.Application.Chats.Queries
 @using MijnCopilot.Web.Helpers
+@using Microsoft.AspNetCore.Components.Authorization
 
 @implements IDisposable
 
 @inject NavigationHelper NavigationHelper
 @inject IMediator Mediator
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <MudNavMenu>
-    <MudNavLink Class="mt-2" Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Start hier</MudNavLink>
+    <MudNavLink Class="mt-2" Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
+    <MudNavLink Href="start" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Add">Start hier</MudNavLink>
 
     @if (NavigationHelper.Links.Any())
     {
@@ -23,12 +26,15 @@
 
 @code
 {
-
-    private List<ChatDto> _activeChats = new List<ChatDto>();
-
     protected override async Task OnInitializedAsync()
     {
         NavigationHelper.LinksChanged += OnLinksChanged;
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
 
         var response = await Mediator.Send(new GetActiveChatsQuery());
 

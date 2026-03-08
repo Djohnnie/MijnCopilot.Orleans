@@ -1,101 +1,130 @@
-﻿@using MediatR
-@using MijnCopilot.Application.Agents.Commands
-@using MijnCopilot.Application.Chats.Commands
-@using MijnCopilot.Web.Helpers
+﻿@using MijnCopilot.Web.Helpers
 
 @page "/"
-@attribute [Authorize]
+@implements IDisposable
 
 @inject NavigationHelper NavigationHelper
 @inject NavigationManager NavigationManager
-@inject IMediator Mediator
 
-<PageTitle>MijnCopilot - Thuispagina</PageTitle>
+<PageTitle>MijnCopilot</PageTitle>
 
-<MudContainer Class="pa-0 pa-sm-12">
-    <MudChat ChatPosition="ChatBubblePosition.Start">
-        <MudAvatar Color="Color.Default">
-            <MudIcon Icon="@Icons.Material.Filled.Webhook" Color="Color.Default" />
-        </MudAvatar>
-        <MudChatHeader Name="MijnCopilot" />
-        <MudChatBubble Color="Color.Default">
-            Waarmee kan ik je helpen?
-        </MudChatBubble>
-    </MudChat>
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8 mb-8">
 
-    @if (!string.IsNullOrEmpty(_request))
-    {
-        <MudChat ChatPosition="ChatBubblePosition.End">
-            <MudAvatar Color="Color.Primary">
-                <MudIcon Icon="@Icons.Material.Filled.Face" Color="Color.Default" />
-            </MudAvatar>
-            <MudChatHeader Name="Jij" Time="Zojuist" />
-            <MudChatBubble Color="Color.Default">
-                @_request
-            </MudChatBubble>
-        </MudChat>
-    }
+    <MudStack AlignItems="AlignItems.Center" Spacing="3" Class="mb-10 text-center">
+        <MudIcon Icon="@Icons.Material.Filled.Webhook" Style="font-size: 5rem;" Color="Color.Primary" />
+        <MudText Typo="Typo.h2" Style="font-weight: 700;">MijnCopilot</MudText>
+        <MudText Typo="Typo.h6" Color="Color.Secondary">
+            Jouw persoonlijke AI-assistent voor slimme gesprekken
+        </MudText>
+        <MudText Typo="Typo.body1" Style="max-width: 560px;" Class="mt-1">
+            MijnCopilot helpt je snel antwoorden te vinden, ideeën te verkennen en taken te voltooien —
+            gewoon door een gesprek te starten.
+        </MudText>
+        <MudStack Row="true" Spacing="2" Class="mt-2">
+            <AuthorizeView>
+                <Authorized>
+                    <MudButton Href="/start" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
+                               StartIcon="@Icons.Material.Filled.Add">
+                        Nieuw gesprek starten
+                    </MudButton>
+                </Authorized>
+                <NotAuthorized>
+                    <MudButton Href="/Login" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
+                               StartIcon="@Icons.Material.Filled.Login">
+                        Inloggen
+                    </MudButton>
+                    <MudButton Href="/start" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Large">
+                        Probeer als gast
+                    </MudButton>
+                </NotAuthorized>
+            </AuthorizeView>
+        </MudStack>
+    </MudStack>
 
-    @if (_isLoading)
-    {
-        <MudChat ChatPosition="ChatBubblePosition.Start">
-            <MudAvatar Color="Color.Default">
-                <MudProgressCircular Size="Size.Small" Color="Color.Default" Indeterminate="true" />
-            </MudAvatar>
+    <MudGrid Spacing="4" Class="mb-10" Justify="Justify.Center">
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-6" Elevation="2" Style="height: 100%;">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Chat" Color="Color.Primary" Style="font-size: 2.5rem;" />
+                    <MudText Typo="Typo.h6" Align="Align.Center">Slimme gesprekken</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                        Start een gesprek en krijg direct relevante antwoorden op je vragen.
+                    </MudText>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-6" Elevation="2" Style="height: 100%;">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.History" Color="Color.Primary" Style="font-size: 2.5rem;" />
+                    <MudText Typo="Typo.h6" Align="Align.Center">Gespreksgeschiedenis</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                        Al je gesprekken worden bewaard zodat je ze altijd kunt terugvinden.
+                    </MudText>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-6" Elevation="2" Style="height: 100%;">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Psychology" Color="Color.Primary" Style="font-size: 2.5rem;" />
+                    <MudText Typo="Typo.h6" Align="Align.Center">Krachtige AI</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                        Aangedreven door de nieuwste AI-technologie voor nauwkeurige resultaten.
+                    </MudText>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
 
-            <MudChatBubble Color="Color.Default">
-                ...
-            </MudChatBubble>
-        </MudChat>
-    }
-</MudContainer>
+    <AuthorizeView>
+        <Authorized>
+            @if (_chats.Any())
+            {
+                <MudText Typo="Typo.h5" Class="mb-4">Recente gesprekken</MudText>
+                <MudGrid Spacing="3">
+                    @foreach (var chat in _chats)
+                    {
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudCard @onclick="@(() => NavigationManager.NavigateTo(chat.Url))"
+                                     Style="cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;"
+                                     Class="mud-card-hover" Elevation="2">
+                                <MudCardContent>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@Icons.Material.Filled.Chat" Color="Color.Primary" />
+                                        <MudText Typo="Typo.body1" Style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                            @chat.Title
+                                        </MudText>
+                                    </MudStack>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        </Authorized>
+    </AuthorizeView>
 
-<MudContainer MaxWidth="MaxWidth.Medium" Class="d-flex flex-column justify-center gap-4">
-    <MudTextField T="string" Label="Stel je vraag" Variant="Variant.Outlined" @bind-Value="Request" Immediate="true" OnKeyDown="@OnKeyDown" TextUpdateSuppression="false"
-                  Adornment="Adornment.End" AdornmentColor="Color.Primary" AdornmentIcon="@Icons.Material.Filled.Send" OnAdornmentClick="@AskQuestion" />
 </MudContainer>
 
 @code
 {
-    private bool _isLoading;
-    private string _request = string.Empty;
+    private List<NavigationItem> _chats = new();
 
-    public string Request { get; set; }
-
-    protected async Task AskQuestion()
+    protected override void OnInitialized()
     {
-        if (string.IsNullOrWhiteSpace(Request))
-        {
-            return;
-        }
-
-        _isLoading = true;
-        _request = Request;
-        Request = string.Empty;
-
-        StateHasChanged();
-
-        var keyword = await Mediator.Send(new GenerateKeywordFromRequestCommand
-        {
-            Request = _request
-        });
-
-        var response = await Mediator.Send(new CreateNewChatCommand
-        {
-            Title = keyword.Keyword,
-            Request = _request,
-            TokensUsed = keyword.InputTokenCount + keyword.OutputTokenCount
-        });
-
-        NavigationHelper.AddLink(response.ChatId, keyword.Keyword, $"/chat/{response.ChatId}", insert: true);
-        NavigationManager.NavigateTo($"/chat/{response.ChatId}?isChatting=true");
+        _chats = NavigationHelper.Links.ToList();
+        NavigationHelper.LinksChanged += OnLinksChanged;
     }
 
-    protected async Task OnKeyDown(KeyboardEventArgs e)
+    private void OnLinksChanged(object? sender, EventArgs e)
     {
-        if (e.Key == "Enter")
-        {
-            await AskQuestion();
-        }
+        _chats = NavigationHelper.Links.ToList();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        NavigationHelper.LinksChanged -= OnLinksChanged;
     }
 }

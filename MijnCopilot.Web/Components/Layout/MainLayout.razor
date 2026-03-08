@@ -16,7 +16,7 @@
                 <MudButton Href="/Login" Color="Color.Inherit">Log in</MudButton>
             </NotAuthorized>
             <Authorized>
-                <MudText Typo="Typo.body2" Class="mr-2">Hello, @context.User.Identity?.Name!</MudText>
+                <MudText Typo="Typo.body2" Class="mr-2">Hello, @context.User.FindFirst("nickname")?.Value!</MudText>
                 <MudButton Href="/Profile" Color="Color.Inherit">Profile</MudButton>
                 <MudButton Href="/Logout" Color="Color.Inherit">Log out</MudButton>
             </Authorized>
